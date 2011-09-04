@@ -235,7 +235,12 @@ main (int argc,
   if (endp != NULL && num_interfaces == 1)
     {
       g_printerr ("Suspending USB device: ");
-      if (!sysfs_write (udev_device_get_syspath (udevice_usb_device), "power/level", "auto") ||
+      if (sysfs_exists (udev_device_get_syspath (udevice_usb_device), "power/control"))
+        power_level_path = "power/control";
+      else
+        power_level_path = "power/level";
+      
+      if (!sysfs_write (udev_device_get_syspath (udevice_usb_device), power_level_path, "auto") ||
           !sysfs_write (udev_device_get_syspath (udevice_usb_device), "power/autosuspend", "0"))
         goto out;
       g_printerr ("OK\n");
@@ -259,7 +264,6 @@ main (int argc,
  out:
   g_free (usb_interface_name);
   g_free (unbind_path);
-  g_free (power_level_path);
   if (sg_fd > 0)
     sg_cmds_close_device (sg_fd);
   if (udevice != NULL)
