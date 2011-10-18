@@ -1,5 +1,5 @@
 [D-BUS Service]
 Name=org.freedesktop.UDisks
-Exec=@libexecdir@/udisks-daemon
+Exec=@libexecdir@/udisks-daemon --no-debug
 User=root
 

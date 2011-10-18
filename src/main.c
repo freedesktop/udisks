@@ -141,12 +141,13 @@ main (int argc,
   static char *helper_dir = NULL;
   char *path;
   int ret;
-  static gboolean replace;
+  static gboolean replace = FALSE;
+  static gboolean no_debug = FALSE;
   static GOptionEntry entries[] =
     {
-      { "replace", 0, 0, G_OPTION_ARG_NONE, &replace, "Replace existing daemon", NULL },
-      { "helper-dir", 0, G_OPTION_FLAG_FILENAME, G_OPTION_ARG_STRING,
-	  &helper_dir, "Directory for helper tools",  NULL },
+      { "no-debug", 'n', 0, G_OPTION_ARG_NONE, &no_debug, "Don't print debug information", NULL },
+      { "replace", 'r', 0, G_OPTION_ARG_NONE, &replace, "Replace existing daemon", NULL },
+      { "helper-dir", 0, 0, G_OPTION_ARG_FILENAME, &helper_dir, "Directory for helper tools",  NULL },
       { NULL } };
 
   PROFILE ("main(): start");
@@ -180,6 +181,25 @@ main (int argc,
   g_option_context_add_main_entries (context, entries, NULL);
   g_option_context_parse (context, &argc, &argv, NULL);
   g_option_context_free (context);
+
+  /* If --no-debug is requested don't clutter stdout/stderr etc.
+   */
+  if (no_debug)
+    {
+      gint dev_null_fd;
+      dev_null_fd = open ("/dev/null", O_RDWR);
+      if (dev_null_fd >= 0)
+        {
+          dup2 (dev_null_fd, STDIN_FILENO);
+          dup2 (dev_null_fd, STDOUT_FILENO);
+          dup2 (dev_null_fd, STDERR_FILENO);
+          close (dev_null_fd);
+        }
+      else
+        {
+          g_warning ("Error opening /dev/null: %m");
+        }
+    }
 
   /* run with a controlled path */
   if (helper_dir != NULL)
