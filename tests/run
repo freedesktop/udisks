@@ -1223,6 +1223,7 @@ class Smart(UDisksTestCase):
                 self.assertEqual(e._dbus_error_name, 'org.freedesktop.UDisks.Error.Failed')
         else:
             sys.stderr.write('[N/A] ')
+            info = self.get_info(devname=hd)
             self.assertEqual(info['ATA SMART'], 'not available')
             self.assertEqual(props.Get(I_D, 'DriveAtaSmartTimeCollected'), 0)
             self.assertEqual(props.Get(I_D, 'DriveAtaSmartBlob'), [])
