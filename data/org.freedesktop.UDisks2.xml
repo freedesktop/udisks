@@ -1416,7 +1416,7 @@
          <literal>eui.02004567A425678D</literal> or
          <literal>naa.52004567BA64678D</literal>.
     -->
-    <property name="Name" type="ay" access="read"/>
+    <property name="Name" type="s" access="read"/>
 
     <!-- TODO: Include an Alias property cf. RFC 3721 2.2 -->
 
@@ -1442,6 +1442,10 @@
            <listitem><para>The network interface to use for the connection</para></listitem>
          </varlistentry>
          <varlistentry>
+           <term>configuration (type <literal>'a{ss}'</literal>)</term>
+           <listitem><para>The configuration for the connection but with confidential information like passwords filtered out. Use the org.freedesktop.UDisks2.Target.GetSecretConfiguration() method to get unfiltered configuration including passwords.</listitem>
+         </varlistentry>
+         <varlistentry>
            <term>state (type <literal>'s'</literal>)</term>
            <listitem><para>The current state of the connection. Known values include the empty string (if there is no connection), <literal>LOGGED_IN</literal> and <literal>FAILED</literal>.</para></listitem>
          </varlistentry>
@@ -1451,44 +1455,66 @@
          </varlistentry>
          </variablelist>
     -->
-    <property name="Connections" type="a(siissa{sv})" access="read"/>
+    <property name="Connections" type="a(siisa{ss}sa{sv})" access="read"/>
 
     <!--
         Login:
-        @host: The hostname of the portal.
-        @port: The port of the portal.
-        @tpgt: The target portal group tag.
-        @iface_name: The interface to log into.
+        @host: The hostname of the portal for the connection.
+        @port: The port of the portal for the connection.
+        @tpgt: The target portal group tag for the connection.
+        @iface_name: The interface to use for the connection.
         @options: Options (currently unused except for <link linkend="udisks-std-options">standard options</link>).
 
         Logs into the target for the connection specified by @host,
         @port, @tpgt and @iface.
       -->
     <method name="Login">
-      <arg name="host" direction="in" type="ay"/>
+      <arg name="host" direction="in" type="s"/>
       <arg name="port" direction="in" type="i"/>
       <arg name="tpgt" direction="in" type="i"/>
-      <arg name="iface_name" direction="in" type="ay"/>
+      <arg name="iface_name" direction="in" type="s"/>
       <arg name="options" direction="in" type="a{sv}"/>
     </method>
 
     <!--
         Logout:
-        @host: The hostname of the portal.
-        @port: The port of the portal.
-        @tpgt: The target portal group tag.
-        @iface_name: The interface to log into.
+        @host: The hostname of the portal for the connection.
+        @port: The port of the portal for the connection.
+        @tpgt: The target portal group tag for the connection.
+        @iface_name: The interface to use for the connection.
         @options: Options (currently unused except for <link linkend="udisks-std-options">standard options</link>).
 
         Logs out of the target for the connection specified by @host,
         @port, @tpgt and @iface_name.
       -->
     <method name="Logout">
-      <arg name="host" direction="in" type="ay"/>
+      <arg name="host" direction="in" type="s"/>
       <arg name="port" direction="in" type="i"/>
       <arg name="tpgt" direction="in" type="i"/>
-      <arg name="iface_iname" direction="in" type="ay"/>
+      <arg name="iface_iname" direction="in" type="s"/>
       <arg name="options" direction="in" type="a{sv}"/>
+    </method>
+
+    <!--
+        GetSecretConfiguration:
+        @host: The hostname of the portal for the connection.
+        @port: The port of the portal for the connection.
+        @tpgt: The target portal group tag for the connection.
+        @iface_name: The interface to use for the connection.
+        @options: Options (currently unused except for <link linkend="udisks-std-options">standard options</link>).
+        @configuration: The requested unfiltered configuration as key/value pairs.
+
+        Returns unfiltered configuration for an item in the
+        #org.freedesktop.UDisks2.Target:Configuration property
+        identified specified by @host, @port, @tpgt and @iface_name.
+      -->
+    <method name="GetSecretConfiguration">
+      <arg name="host" direction="in" type="s"/>
+      <arg name="port" direction="in" type="i"/>
+      <arg name="tpgt" direction="in" type="i"/>
+      <arg name="iface_iname" direction="in" type="s"/>
+      <arg name="options" direction="in" type="a{sv}"/>
+      <arg name="configuration" direction="out" type="a{ss}"/>
     </method>
   </interface>
 

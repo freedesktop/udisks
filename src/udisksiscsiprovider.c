@@ -21,6 +21,9 @@
 #include "config.h"
 #include <glib/gi18n-lib.h>
 
+#define _GNU_SOURCE
+#include <string.h>
+
 /* TODO:
  *
  *  - instead of parsing /var/lib/iscsi, we should probably run the
@@ -182,12 +185,19 @@ util_compute_object_path (const gchar *base,
 typedef struct
 {
   gchar *name;
+
+  GVariant *settings;
+  GVariant *secret_settings;
 } iSCSIIface;
 
 static void
 iscsi_iface_free (iSCSIIface *iface)
 {
   g_free (iface->name);
+  if (iface->settings != NULL)
+    g_variant_unref (iface->settings);
+  if (iface->secret_settings != NULL)
+    g_variant_unref (iface->secret_settings);
   g_free (iface);
 }
 
@@ -568,7 +578,7 @@ portals_and_ifaces_to_gvariant (UDisksiSCSIProvider *provider,
 
   target->portals = g_list_sort (target->portals, (GCompareFunc) iscsi_portal_compare);
 
-  g_variant_builder_init (&connections_builder, G_VARIANT_TYPE ("a(siissa{sv})"));
+  g_variant_builder_init (&connections_builder, G_VARIANT_TYPE ("a(siisa{ss}sa{sv})"));
   for (l = target->portals; l != NULL; l = l->next)
     {
       iSCSIPortal *portal = l->data;
@@ -587,11 +597,12 @@ portals_and_ifaces_to_gvariant (UDisksiSCSIProvider *provider,
                                          iface->name,
                                          &connection_tpgt);
 
-          g_variant_builder_add (&connections_builder, "(siissa{sv})",
+          g_variant_builder_add (&connections_builder, "(siis@a{ss}sa{sv})",
                                  portal->address,
                                  portal->port,
                                  portal->tpgt != -1 ? portal->tpgt : connection_tpgt,
                                  iface->name,
+                                 iface->settings,
                                  state,
                                  NULL); /* expansion */
         }
@@ -731,6 +742,227 @@ on_iscsi_target_handle_logout (UDisksiSCSITarget     *iface,
 
 /* ---------------------------------------------------------------------------------------------------- */
 
+/* TODO: this can be done a lot smarter... */
+static iSCSIIface *
+find_iface (UDisksiSCSIProvider  *provider,
+            UDisksiSCSITarget    *target_iface,
+            const gchar           *host,
+            gint                   port,
+            gint                   tpgt,
+            const gchar           *iface_name)
+{
+  GList *l, *ll, *lll;
+  iSCSIIface *ret = NULL;
+
+  for (l = provider->targets; l != NULL; l = l->next)
+    {
+      iSCSITarget *target = l->data;
+
+      if (target->iface != target_iface)
+        continue;
+
+      for (ll = target->portals; ll != NULL; ll = ll->next)
+        {
+          iSCSIPortal *portal = ll->data;
+
+          if (!(g_strcmp0 (portal->address, host) == 0 &&
+                portal->port == port &&
+                portal->tpgt == tpgt))
+            continue;
+
+          for (lll = portal->ifaces; lll != NULL; lll = lll->next)
+            {
+              iSCSIIface *iface = lll->data;
+
+              if (g_strcmp0 (iface->name, iface_name) == 0)
+                {
+                  ret = iface;
+                  goto out;
+                }
+            }
+        }
+    }
+
+ out:
+  return ret;
+}
+
+static gboolean
+on_iscsi_target_handle_get_secret_configuration (UDisksiSCSITarget     *iface,
+                                                 GDBusMethodInvocation *invocation,
+                                                 const gchar           *host,
+                                                 gint                   port,
+                                                 gint                   tpgt,
+                                                 const gchar           *iface_name,
+                                                 GVariant              *options,
+                                                 gpointer               user_data)
+{
+  UDisksiSCSIProvider *provider = UDISKS_ISCSI_PROVIDER (user_data);
+  iSCSIIface *iscsi_iface;
+
+  if (!udisks_daemon_util_check_authorization_sync (provider->daemon,
+                                                    UDISKS_OBJECT (g_dbus_interface_get_object (G_DBUS_INTERFACE (iface))),
+                                                    "org.freedesktop.udisks2.read-system-configuration-secrets",
+                                                    options,
+                                                    N_("Authentication is required to read iSCSI passwords"),
+                                                    invocation))
+    goto out;
+
+  iscsi_iface = find_iface (provider, iface, host, port, tpgt, iface_name);
+  if (iscsi_iface == NULL)
+    {
+      g_dbus_method_invocation_return_error (invocation,
+                                             UDISKS_ERROR,
+                                             UDISKS_ERROR_FAILED,
+                                             "Connection not found");
+      goto out;
+    }
+
+  udisks_iscsi_target_complete_get_secret_configuration (iface,
+                                                         invocation,
+                                                         iscsi_iface->secret_settings);
+
+ out:
+  return TRUE; /* call was handled */
+}
+
+/* ---------------------------------------------------------------------------------------------------- */
+
+static void
+load_settings (UDisksiSCSIProvider *provider,
+               iSCSITarget         *target)
+{
+  GList *l, *ll;
+  gchar *escaped_target;
+
+  escaped_target = g_strescape (target->target_name, NULL);
+
+  target->portals = g_list_sort (target->portals, (GCompareFunc) iscsi_portal_compare);
+  for (l = target->portals; l != NULL; l = l->next)
+    {
+      iSCSIPortal *portal = l->data;
+      gchar *escaped_portal;
+
+      escaped_portal = g_strescape (portal->address, NULL);
+
+      portal->ifaces = g_list_sort (portal->ifaces, (GCompareFunc) iscsi_iface_compare);
+      for (ll = portal->ifaces; ll != NULL; ll = ll->next)
+        {
+          iSCSIIface *iface = ll->data;
+          gchar *escaped_interface;
+          gchar *command_line;
+          gchar *ia_out = NULL;
+          gchar *ia_err = NULL;
+          GError *error = NULL;
+          gint exit_status;
+          gchar *p;
+          GVariantBuilder settings_builder;
+          GVariantBuilder secret_settings_builder;
+
+          g_variant_builder_init (&settings_builder, G_VARIANT_TYPE ("a{ss}"));
+          g_variant_builder_init (&secret_settings_builder, G_VARIANT_TYPE ("a{ss}"));
+
+          escaped_interface = g_strescape (iface->name, NULL);
+
+          command_line = g_strdup_printf ("iscsiadm --mode node --target \"%s\" --portal \"%s\":%d "
+                                          "--interface \"%s\" --op show --show",
+                                          escaped_target,
+                                          escaped_portal,
+                                          portal->port == 0 ? 3260 : portal->port,
+                                          escaped_interface);
+
+          error = NULL;
+          if (!g_spawn_command_line_sync (command_line,
+                                          &ia_out,
+                                          &ia_err,
+                                          &exit_status,
+                                          &error))
+            {
+              udisks_warning ("Error spawning command-line `%s': %s (%s, %d)",
+                              command_line,
+                              error->message, g_quark_to_string (error->domain), error->code);
+              g_error_free (error);
+              goto cont;
+            }
+
+          if (!(WIFEXITED (exit_status) && WEXITSTATUS (exit_status) == 0))
+            {
+              udisks_warning ("Command-line `%s' did not exit with exit status 0: %s",
+                              command_line, ia_err);
+              goto cont;
+            }
+
+          p = ia_out;
+          while (p != NULL)
+            {
+              gchar *p_next;
+              gchar *p_middle;
+              gchar *p_end;
+              gchar *key, *value;
+              p_end = strchr (p, '\n');
+              if (p_end == NULL)
+                {
+                  p_next = NULL;
+                }
+              else
+                {
+                  p_next = p_end + 1;
+                  *p_end = '\0';
+                }
+
+              if (p[0] == '#')
+                goto loop_cont;
+
+              p_middle = strstr (p, " = ");
+              if (p_middle == NULL)
+                goto loop_cont;
+
+              *p_middle = '\0';
+
+              key = p;
+              value = p_middle + 3;
+
+              /* TODO: ensure @key and @value are valid UTF-8 */
+              if (g_strcmp0 (value, "<empty>") == 0)
+                value = "";
+
+              if (strstr (key, "password") != NULL)
+                {
+                  /* key includes the word 'password' => only include value in secret_settings */
+                  g_variant_builder_add (&settings_builder, "{ss}", key, "");
+                  g_variant_builder_add (&secret_settings_builder, "{ss}", key, value);
+                }
+              else
+                {
+                  g_variant_builder_add (&settings_builder, "{ss}", key, value);
+                  g_variant_builder_add (&secret_settings_builder, "{ss}", key, value);
+                }
+
+            loop_cont:
+              p = p_next;
+            }
+
+        cont:
+          if (iface->settings != NULL)
+            g_variant_unref (iface->settings);
+          iface->settings = g_variant_ref_sink (g_variant_builder_end (&settings_builder));
+
+          if (iface->secret_settings != NULL)
+            g_variant_unref (iface->secret_settings);
+          iface->secret_settings = g_variant_ref_sink (g_variant_builder_end (&secret_settings_builder));
+
+          g_free (ia_out);
+          g_free (ia_err);
+          g_free (command_line);
+          g_free (escaped_interface);
+
+        }
+      g_free (escaped_portal);
+    }
+  g_free (escaped_target);
+}
+
+
 static void
 add_remove_targets (UDisksiSCSIProvider  *provider,
                     GList                *parsed_targets)
@@ -772,9 +1004,20 @@ add_remove_targets (UDisksiSCSIProvider  *provider,
                         "handle-logout",
                         G_CALLBACK (on_iscsi_target_handle_logout),
                         provider);
+      g_signal_connect (target->iface,
+                        "handle-get-secret-configuration",
+                        G_CALLBACK (on_iscsi_target_handle_get_secret_configuration),
+                        provider);
       udisks_iscsi_target_set_name (target->iface, target->target_name);
       udisks_iscsi_target_set_source (target->iface, target->source_object_path);
       provider->targets = g_list_prepend (provider->targets, iscsi_target_ref (target));
+    }
+
+  /* re-load all settings */
+  for (l = provider->targets; l != NULL; l = l->next)
+    {
+      iSCSITarget *target = l->data;
+      load_settings (provider, target);
     }
 
   /* update all known targets since portals/interfaces might have changed */
@@ -871,6 +1114,7 @@ load_and_process_iscsi (UDisksiSCSIProvider *provider)
   iSCSITarget *target;
   iSCSIPortal *portal;
   iSCSISource *source;
+  gint mode;
 
   parsed_targets = NULL;
   parsed_sources = NULL;
@@ -900,8 +1144,6 @@ load_and_process_iscsi (UDisksiSCSIProvider *provider)
       goto done_parsing;
     }
 
-
-  gint mode;
   mode = MODE_NOWHERE;
   source = NULL;
 
