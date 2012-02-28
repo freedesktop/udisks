@@ -252,6 +252,16 @@
     -->
     <property name="SortKey" type="s" access="read"/>
 
+    <!-- iSCSITarget:
+         If the drive does not belong to an iSCSI target, this
+         property is set to '/'. Otherwise, the property holds the
+         path to an object implementing the
+         #org.freedesktop.UDisks2.iSCSITarget interface.
+    -->
+    <property name="iSCSITarget" type="o" access="read">
+      <annotation name="org.gtk.GDBus.C.Name" value="iSCSI_Target"/>
+    </property>
+
     <!--
         Eject:
         @options: Options (currently unused except for <link linkend="udisks-std-options">standard options</link>).
@@ -1352,6 +1362,134 @@
       <arg name="success" type="b"/>
       <arg name="message" type="s"/>
     </signal>
+  </interface>
+
+  <!-- ********************************************************************** -->
+
+  <!-- org.freedesktop.UDisks2.iSCSISource:
+       @short_description: A source of iSCSI targets
+
+       A logical grouping of iSCSI targets - see the
+       #org.freedesktop.UDisks2.iSCSITarget:Source property on
+       each #org.freedesktop.UDisks2.iSCSITarget object.
+    -->
+  <interface name="org.freedesktop.UDisks2.iSCSISource">
+    <annotation name="org.gtk.GDBus.C.Name" value="iSCSI_Source"/>
+
+    <!--
+        Mechanism:
+        The mechanism used to collect the iSCSI targets in the source.
+
+        Known values include <literal>sendtargets</literal>.
+        <literal>isns</literal>, <literal>firmware<literal>
+        and <literal>static</literal>
+    -->
+    <property name="Mechanism" type="s" access="read"/>
+
+    <!--
+        DiscoveryAddress:
+        The address of the server in question - the exact format
+        depends on the value in the
+        #org.freedesktop.UDisks2.iSCSISource:Mechanism property.
+    -->
+    <property name="Address" type="s" access="read"/>
+  </interface>
+
+  <!-- org.freedesktop.UDisks2.iSCSITarget:
+       @short_description: Remote iSCSI Targets
+
+       This interface is used to represent remote iSCSI targets that
+       the system knows about.
+    -->
+  <interface name="org.freedesktop.UDisks2.iSCSITarget">
+    <annotation name="org.gtk.GDBus.C.Name" value="iSCSI_Target"/>
+
+    <!--
+        Source: The #org.freedesktop.UDisks2.iSCSISource that the
+        target stems from.
+    -->
+    <property name="Source" type="o" access="read"/>
+
+    <!-- Name: The name of the iSCSI target
+         Example target names include
+         <literal>iqn.2000-07.dk.fubar:storage.ma.burlington.scratch0</literal> or
+         <literal>eui.02004567A425678D</literal> or
+         <literal>naa.52004567BA64678D</literal>.
+    -->
+    <property name="Name" type="ay" access="read"/>
+
+    <!-- TODO: Include an Alias property cf. RFC 3721 2.2 -->
+
+    <!-- Connections:
+         The various connections to the target.
+
+         This is an array of items
+         <variablelist>
+         <varlistentry>
+           <term>host (type <literal>'s'</literal>)</term>
+           <listitem><para>The hostname or IP address of the portal to connect to</para></listitem>
+         </varlistentry>
+         <varlistentry>
+           <term>port (type <literal>'i'</literal>)</term>
+           <listitem><para>The TCP port number of the portal to connect to</para></listitem>
+         </varlistentry>
+         <varlistentry>
+           <term>tpgt (type <literal>'i'</literal>)</term>
+           <listitem><para>The Target Portal Group Tag to use for the connection</para></listitem>
+         </varlistentry>
+         <varlistentry>
+           <term>iface_name (type <literal>'s'</literal>)</term>
+           <listitem><para>The network interface to use for the connection</para></listitem>
+         </varlistentry>
+         <varlistentry>
+           <term>state (type <literal>'s'</literal>)</term>
+           <listitem><para>The current state of the connection. Known values include the empty string (if there is no connection), <literal>LOGGED_IN</literal> and <literal>FAILED</literal>.</para></listitem>
+         </varlistentry>
+         <varlistentry>
+           <term>expansion (type <literal>'a{sv}'</literal>)</term>
+          <listitem><para>Currently unused. Intended for future expansion.</para></listitem></varlistentry>
+         </varlistentry>
+         </variablelist>
+    -->
+    <property name="Connections" type="a(siissa{sv})" access="read"/>
+
+    <!--
+        Login:
+        @host: The hostname of the portal.
+        @port: The port of the portal.
+        @tpgt: The target portal group tag.
+        @iface_name: The interface to log into.
+        @options: Options (currently unused except for <link linkend="udisks-std-options">standard options</link>).
+
+        Logs into the target for the connection specified by @host,
+        @port, @tpgt and @iface.
+      -->
+    <method name="Login">
+      <arg name="host" direction="in" type="ay"/>
+      <arg name="port" direction="in" type="i"/>
+      <arg name="tpgt" direction="in" type="i"/>
+      <arg name="iface_name" direction="in" type="ay"/>
+      <arg name="options" direction="in" type="a{sv}"/>
+    </method>
+
+    <!--
+        Logout:
+        @host: The hostname of the portal.
+        @port: The port of the portal.
+        @tpgt: The target portal group tag.
+        @iface_name: The interface to log into.
+        @options: Options (currently unused except for <link linkend="udisks-std-options">standard options</link>).
+
+        Logs out of the target for the connection specified by @host,
+        @port, @tpgt and @iface_name.
+      -->
+    <method name="Logout">
+      <arg name="host" direction="in" type="ay"/>
+      <arg name="port" direction="in" type="i"/>
+      <arg name="tpgt" direction="in" type="i"/>
+      <arg name="iface_iname" direction="in" type="ay"/>
+      <arg name="options" direction="in" type="a{sv}"/>
+    </method>
   </interface>
 
   <!-- ********************************************************************** -->

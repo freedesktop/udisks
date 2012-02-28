@@ -103,6 +103,9 @@ typedef struct _UDisksLinuxPartition UDisksLinuxPartition;
 struct _UDisksLinuxPartitionTable;
 typedef struct _UDisksLinuxPartitionTable UDisksLinuxPartitionTable;
 
+struct _UDisksiSCSIProvider;
+typedef struct _UDisksiSCSIProvider UDisksiSCSIProvider;
+
 /**
  * UDisksThreadedJobFunc:
  * @job: A #UDisksThreadedJob.

@@ -153,7 +153,7 @@ on_uevent (GUdevClient  *client,
 static void
 udisks_linux_provider_init (UDisksLinuxProvider *provider)
 {
-  const gchar *subsystems[] = {"block", "iscsi_connection", "scsi", NULL};
+  const gchar *subsystems[] = {"block", "scsi", NULL};
 
   /* get ourselves an udev client */
   provider->gudev_client = g_udev_client_new (subsystems);

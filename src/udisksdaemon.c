@@ -37,6 +37,7 @@
 #include "udisksfstabentry.h"
 #include "udiskscrypttabmonitor.h"
 #include "udiskscrypttabentry.h"
+#include "udisksiscsiprovider.h"
 
 /**
  * SECTION:udisksdaemon
@@ -65,6 +66,8 @@ struct _UDisksDaemon
   UDisksPersistentStore *persistent_store;
 
   UDisksLinuxProvider *linux_provider;
+
+  UDisksiSCSIProvider *iscsi_provider;
 
   PolkitAuthority *authority;
 
@@ -102,8 +105,9 @@ udisks_daemon_finalize (GObject *object)
 
   g_object_unref (daemon->authority);
   g_object_unref (daemon->persistent_store);
-  g_object_unref (daemon->object_manager);
   g_object_unref (daemon->linux_provider);
+  g_object_unref (daemon->iscsi_provider);
+  g_object_unref (daemon->object_manager);
   g_object_unref (daemon->mount_monitor);
   g_object_unref (daemon->connection);
   g_object_unref (daemon->fstab_monitor);
@@ -232,7 +236,10 @@ udisks_daemon_constructed (GObject *object)
 
   /* now add providers */
   daemon->linux_provider = udisks_linux_provider_new (daemon);
+  daemon->iscsi_provider = udisks_iscsi_provider_new (daemon);
 
+  /* need to start the iSCSI provider before the Drive and Block provider */
+  udisks_provider_start (UDISKS_PROVIDER (daemon->iscsi_provider));
   udisks_provider_start (UDISKS_PROVIDER (daemon->linux_provider));
 
   /* Export the ObjectManager */
@@ -409,6 +416,21 @@ udisks_daemon_get_linux_provider (UDisksDaemon *daemon)
 {
   g_return_val_if_fail (UDISKS_IS_DAEMON (daemon), NULL);
   return daemon->linux_provider;
+}
+
+/**
+ * udisks_daemon_get_iscsi_provider:
+ * @daemon: A #UDisksDaemon.
+ *
+ * Gets the iSCSI Provider, if any.
+ *
+ * Returns: A #UDisksiSCSIProvider or %NULL. Do not free, the object is owned by @daemon.
+ */
+UDisksiSCSIProvider *
+udisks_daemon_get_iscsi_provider (UDisksDaemon *daemon)
+{
+  g_return_val_if_fail (UDISKS_IS_DAEMON (daemon), NULL);
+  return daemon->iscsi_provider;
 }
 
 /**
