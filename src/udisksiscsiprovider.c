@@ -84,6 +84,8 @@
 
 static void load_and_process_iscsi (UDisksiSCSIProvider *provider);
 
+static void request_reload (UDisksiSCSIProvider *provider);
+
 static void         connections_init      (UDisksiSCSIProvider *provider);
 static void         connections_finalize  (UDisksiSCSIProvider *provider);
 static const gchar *connections_get_state (UDisksiSCSIProvider *provider,
@@ -635,11 +637,11 @@ on_iscsi_target_handle_login_logout (UDisksiSCSITarget     *iface,
   /* TODO: we want nicer authentication message */
   if (!udisks_daemon_util_check_authorization_sync (provider->daemon,
                                                     UDISKS_OBJECT (g_dbus_interface_get_object (G_DBUS_INTERFACE (iface))),
-                                                    "org.freedesktop.udisks2.iscsi-initiator",
+                                                    "org.freedesktop.udisks2.iscsi-initiator.login-logout",
                                                     options,
                                                     is_login ?
-                                                      N_("Authentication is required to login to an iSCSI target") :
-                                                      N_("Authentication is required to logout of an iSCSI target"),
+                                                      N_("Authentication is required to login to a remote iSCSI target") :
+                                                      N_("Authentication is required to logout from a remote iSCSI target"),
                                                     invocation))
     goto out;
 
@@ -787,6 +789,8 @@ find_iface (UDisksiSCSIProvider  *provider,
   return ret;
 }
 
+/* ---------------------------------------------------------------------------------------------------- */
+
 static gboolean
 on_iscsi_target_handle_get_secret_configuration (UDisksiSCSITarget     *iface,
                                                  GDBusMethodInvocation *invocation,
@@ -804,7 +808,7 @@ on_iscsi_target_handle_get_secret_configuration (UDisksiSCSITarget     *iface,
                                                     UDISKS_OBJECT (g_dbus_interface_get_object (G_DBUS_INTERFACE (iface))),
                                                     "org.freedesktop.udisks2.read-system-configuration-secrets",
                                                     options,
-                                                    N_("Authentication is required to read iSCSI passwords"),
+                                                    N_("Authentication is required to read passwords used to connect to a remote iSCSI target"),
                                                     invocation))
     goto out;
 
@@ -823,6 +827,118 @@ on_iscsi_target_handle_get_secret_configuration (UDisksiSCSITarget     *iface,
                                                          iscsi_iface->secret_settings);
 
  out:
+  return TRUE; /* call was handled */
+}
+
+/* ---------------------------------------------------------------------------------------------------- */
+
+static gboolean
+on_iscsi_target_handle_update_configuration (UDisksiSCSITarget     *iface,
+                                             GDBusMethodInvocation *invocation,
+                                             const gchar           *host,
+                                             gint                   port,
+                                             gint                   tpgt,
+                                             const gchar           *iface_name,
+                                             GVariant              *configuration,
+                                             GVariant              *options,
+                                             gpointer               user_data)
+{
+  UDisksiSCSIProvider *provider = UDISKS_ISCSI_PROVIDER (user_data);
+  iSCSIIface *iscsi_iface;
+  GVariantIter iter;
+  const gchar *key;
+  const gchar *value;
+  gchar *escaped_target = NULL;
+  gchar *escaped_host = NULL;
+  gchar *escaped_iface_name = NULL;
+
+  if (!udisks_daemon_util_check_authorization_sync (provider->daemon,
+                                                    UDISKS_OBJECT (g_dbus_interface_get_object (G_DBUS_INTERFACE (iface))),
+                                                    "org.freedesktop.udisks2.iscsi-initiator.modify",
+                                                    options,
+                                                    N_("Authentication is required to update configuration for how to connect to a remote iSCSI target"),
+                                                    invocation))
+    goto out;
+
+  iscsi_iface = find_iface (provider, iface, host, port, tpgt, iface_name);
+  if (iscsi_iface == NULL)
+    {
+      g_dbus_method_invocation_return_error (invocation,
+                                             UDISKS_ERROR,
+                                             UDISKS_ERROR_FAILED,
+                                             "Connection not found");
+      goto out;
+    }
+
+  escaped_target = g_strescape (udisks_iscsi_target_get_name (iface), NULL);
+  escaped_host = g_strescape (host, NULL);
+  escaped_iface_name = g_strescape (iface_name, NULL);
+
+  g_variant_iter_init (&iter, configuration);
+  while (g_variant_iter_next (&iter, "{&s&s}", &key, &value))
+    {
+      gchar *command_line = NULL;
+      gchar *stderror_str = NULL;
+      gchar *escaped_key = NULL;
+      gchar *escaped_value = NULL;
+      gint exit_status;
+      GError *error;
+
+      escaped_key = g_strescape (key, NULL);
+      escaped_value = g_strescape (value, NULL);
+
+      command_line = g_strdup_printf ("iscsiadm --mode node --target \"%s\" --portal \"%s\":%d "
+                                      "--interface \"%s\" --op update --name \"%s\" --value \"%s\"",
+                                      escaped_target,
+                                      escaped_host,
+                                      port == 0 ? 3260 : port,
+                                      escaped_iface_name,
+                                      escaped_key,
+                                      escaped_value);
+      g_free (escaped_key);
+      g_free (escaped_value);
+
+      error = NULL;
+      if (!g_spawn_command_line_sync (command_line,
+                                      NULL, /* gchar **stdout */
+                                      &stderror_str,
+                                      &exit_status,
+                                      &error))
+        {
+          g_dbus_method_invocation_return_error (invocation,
+                                                 UDISKS_ERROR,
+                                                 UDISKS_ERROR_FAILED,
+                                                 "Error spawning command-line `%s': %s (%s, %d)",
+                                                 command_line,
+                                                 error->message, g_quark_to_string (error->domain), error->code);
+          g_error_free (error);
+          g_free (command_line);
+          goto out;
+        }
+      if (!(WIFEXITED (exit_status) && WEXITSTATUS (exit_status) == 0))
+        {
+          g_dbus_method_invocation_return_error (invocation,
+                                                 UDISKS_ERROR,
+                                                 UDISKS_ERROR_FAILED,
+                                                 "Command-line `%s' did not exit with exit status 0: %s",
+                                                 command_line, stderror_str);
+          g_free (command_line);
+          g_free (stderror_str);
+          goto out;
+        }
+
+      g_free (command_line);
+    }
+
+  /* request reload */
+  request_reload (provider);
+
+  udisks_iscsi_target_complete_update_configuration (iface, invocation);
+
+ out:
+  g_free (escaped_target);
+  g_free (escaped_host);
+  g_free (escaped_iface_name);
   return TRUE; /* call was handled */
 }
 
@@ -1007,6 +1123,10 @@ add_remove_targets (UDisksiSCSIProvider  *provider,
       g_signal_connect (target->iface,
                         "handle-get-secret-configuration",
                         G_CALLBACK (on_iscsi_target_handle_get_secret_configuration),
+                        provider);
+      g_signal_connect (target->iface,
+                        "handle-update-configuration",
+                        G_CALLBACK (on_iscsi_target_handle_update_configuration),
                         provider);
       udisks_iscsi_target_set_name (target->iface, target->target_name);
       udisks_iscsi_target_set_source (target->iface, target->source_object_path);
@@ -1348,6 +1468,14 @@ on_cool_off_timeout_cb (gpointer user_data)
 }
 
 static void
+request_reload (UDisksiSCSIProvider *provider)
+{
+  /* coalesce many requests into one */
+  if (provider->cool_off_timeout_id == 0)
+    provider->cool_off_timeout_id = g_timeout_add (250, on_cool_off_timeout_cb, provider);
+}
+
+static void
 on_file_monitor_changed (GFileMonitor     *monitor,
                          GFile            *file,
                          GFile            *other_file,
@@ -1356,9 +1484,7 @@ on_file_monitor_changed (GFileMonitor     *monitor,
 {
   UDisksiSCSIProvider *provider = UDISKS_ISCSI_PROVIDER (user_data);
   udisks_info ("iscsi file monitor event..");
-  /* coalesce many events into one */
-  if (provider->cool_off_timeout_id == 0)
-    provider->cool_off_timeout_id = g_timeout_add (250, on_cool_off_timeout_cb, provider);
+  request_reload (provider);
 }
 
 /* ---------------------------------------------------------------------------------------------------- */

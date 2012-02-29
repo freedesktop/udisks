@@ -235,9 +235,19 @@
     </defaults>
   </action>
 
-  <action id="org.freedesktop.udisks2.iscsi-initiator">
-    <_description>Configure iSCSI initiator settings</_description>
-    <_message>Authentication is required to configure iSCSI initiator settings</_message>
+  <action id="org.freedesktop.udisks2.iscsi-initiator.login-logout">
+    <_description>Login/logout of a remote iSCSI target</_description>
+    <_message>Authentication is required to login/logout of a remote iSCSI target</_message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.freedesktop.udisks2.iscsi-initiator.modify">
+    <_description>Configure settings for remote iSCSI target</_description>
+    <_message>Authentication is required to configure settings for a remote iSCSI target</_message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>

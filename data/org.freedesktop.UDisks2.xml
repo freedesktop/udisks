@@ -1516,6 +1516,28 @@
       <arg name="options" direction="in" type="a{sv}"/>
       <arg name="configuration" direction="out" type="a{ss}"/>
     </method>
+
+    <!--
+        UpdateConfiguration:
+        @host: The hostname of the portal for the connection.
+        @port: The port of the portal for the connection.
+        @tpgt: The target portal group tag for the connection.
+        @iface_name: The interface to use for the connection.
+        @options: Options (currently unused except for <link linkend="udisks-std-options">standard options</link>).
+        @configuration: The key/value pairs to update.
+
+        Updates configuration for an item in the
+        #org.freedesktop.UDisks2.Target:Configuration property
+        identified specified by @host, @port, @tpgt and @iface_name.
+      -->
+    <method name="UpdateConfiguration">
+      <arg name="host" direction="in" type="s"/>
+      <arg name="port" direction="in" type="i"/>
+      <arg name="tpgt" direction="in" type="i"/>
+      <arg name="iface_iname" direction="in" type="s"/>
+      <arg name="configuration" direction="in" type="a{ss}"/>
+      <arg name="options" direction="in" type="a{sv}"/>
+    </method>
   </interface>
 
   <!-- ********************************************************************** -->
