@@ -629,14 +629,21 @@ on_iscsi_target_handle_login_logout (UDisksiSCSITarget     *iface,
   gint exit_status;
   gchar *error_message = NULL;
   GString *command_line = NULL;
+  UDisksObject *object = NULL;
+  GError *error;
   gchar *s;
 
-  error_message = NULL;
-  command_line = NULL;
+  error = NULL;
+  object = udisks_daemon_util_dup_object (iface, &error);
+  if (object == NULL)
+    {
+      g_dbus_method_invocation_take_error (invocation, error);
+      goto out;
+    }
 
   /* TODO: we want nicer authentication message */
   if (!udisks_daemon_util_check_authorization_sync (provider->daemon,
-                                                    UDISKS_OBJECT (g_dbus_interface_get_object (G_DBUS_INTERFACE (iface))),
+                                                    object,
                                                     "org.freedesktop.udisks2.iscsi-initiator.login-logout",
                                                     options,
                                                     is_login ?
@@ -671,7 +678,7 @@ on_iscsi_target_handle_login_logout (UDisksiSCSITarget     *iface,
     g_string_append (command_line, " --logout");
 
   if (!udisks_daemon_launch_spawned_job_sync (provider->daemon,
-                                              NULL,  /* object */
+                                              object,
                                               NULL,  /* GCancellable */
                                               0,     /* uid_t run_as_uid */
                                               0,     /* uid_t run_as_euid */
@@ -708,6 +715,7 @@ on_iscsi_target_handle_login_logout (UDisksiSCSITarget     *iface,
     }
 
  out:
+  g_clear_object (&object);
   if (command_line != NULL)
     g_string_free (command_line, TRUE);
   g_free (error_message);
