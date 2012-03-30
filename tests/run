@@ -752,7 +752,8 @@ class FS(UDisksTestCase):
             self.assertRaises(dbus.DBusException, iface.FilesystemSetLabel, 'foo')
 
         # check fs
-        self.assertEqual(iface.FilesystemCheck([]), True)
+        if type != 'swap':
+            self.assertEqual(iface.FilesystemCheck([]), True)
 
     def _do_file_perms_checks(self, type, mount_point):
         '''Check for permissions for data files and executables.
