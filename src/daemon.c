@@ -1705,12 +1705,13 @@ mdstat_changed_event (GIOChannel *channel,
   Device *device;
   char *native_path;
   GPtrArray *a;
+  GError *error = NULL;
   int n;
 
   if (cond & ~G_IO_PRI)
     goto out;
 
-  if (g_io_channel_seek (channel, 0, G_SEEK_SET) != G_IO_ERROR_NONE)
+  if (g_io_channel_seek_position (channel, 0, G_SEEK_SET, &error) != G_IO_STATUS_NORMAL)
     {
       g_warning ("Cannot seek in /proc/mdstat");
       goto out;
@@ -1742,6 +1743,8 @@ mdstat_changed_event (GIOChannel *channel,
   g_ptr_array_free (a, TRUE);
 
  out:
+  if (error != NULL)
+    g_error_free (error);
   return TRUE;
 }
 
