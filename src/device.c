@@ -5108,6 +5108,13 @@ device_new (Daemon *daemon,
   if (g_str_has_prefix (native_path, "/sys/devices/virtual/block/ram"))
     goto out;
 
+  /* ignore bogus events */
+  if (!g_file_test (native_path, G_FILE_TEST_EXISTS))
+    {
+      g_warning ("Ignoring device with nonexisting native path: %s", native_path);
+      goto out;
+    }
+
   PROFILE ("device_new(native_path=%s): start", native_path);
 
   device = DEVICE (g_object_new (TYPE_DEVICE, NULL));
