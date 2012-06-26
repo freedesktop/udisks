@@ -180,20 +180,24 @@ ENV{ID_VENDOR}=="*IOMEGA*", ENV{ID_MODEL}=="*ZIP*", ENV{ID_DRIVE_FLOPPY_ZIP}="1"
 
 # Partitions which desktops should not display
 #
+# (note that RAID/LVM members are not normally shown in an user
+# interface so setting UDISKS__PRESENTATION_HIDE at first does not
+# seem to achieve anything. However it helps for RAID/LVM members that
+# are encrypted using LUKS. See bug #51439.)
 
 # Apple Bootstrap partitions
 ENV{UDISKS_PARTITION_SCHEME}=="apm", ENV{UDISKS_PARTITION_TYPE}=="Apple_Bootstrap", ENV{UDISKS_PRESENTATION_HIDE}="1"
 
-# special MBR partition types (EFI, hidden, etc.)
+# special MBR partition types (EFI, hidden, etc.) and RAID/LVM
 # see http://www.win.tue.nl/~aeb/partitions/partition_types-1.html
 ENV{UDISKS_PARTITION_SCHEME}=="mbr", \
-  ENV{UDISKS_PARTITION_TYPE}=="0x00|0x11|0x12|0x14|0x16|0x17|0x1b|0x1c|0x1e|0x27|0x3d|0x84|0x8d|0x90|0x91|0x92|0x93|0x97|0x98|0x9a|0x9b|0xbb|0xc2|0xc3|0xdd|0xef", \
+  ENV{UDISKS_PARTITION_TYPE}=="0x00|0x11|0x12|0x14|0x16|0x17|0x1b|0x1c|0x1e|0x27|0x3d|0x84|0x8d|0x8e|0x90|0x91|0x92|0x93|0x97|0x98|0x9a|0x9b|0xbb|0xc2|0xc3|0xdd|0xef|0xfd", \
   ENV{UDISKS_PRESENTATION_HIDE}="1"
 
 # special GUID-identified partition types
 # see http://en.wikipedia.org/wiki/GUID_Partition_Table#Partition_type_GUIDs
 ENV{UDISKS_PARTITION_SCHEME}=="gpt", \
-  ENV{UDISKS_PARTITION_TYPE}=="C12A7328-F81F-11D2-BA4B-00A0C93EC93B|21686148-6449-6E6F-744E-656564454649", \
+  ENV{UDISKS_PARTITION_TYPE}=="C12A7328-F81F-11D2-BA4B-00A0C93EC93B|21686148-6449-6E6F-744E-656564454649|A19D880F-05FC-4D3B-A006-743F0F84911E|E6D6D379-F507-44C2-A23C-238F2A3DF928", \
   ENV{UDISKS_PRESENTATION_HIDE}="1"
 
 # APM recovery/tool partitions which are useless on Linux
