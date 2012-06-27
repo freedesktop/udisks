@@ -24,6 +24,16 @@ dbusconf_DATA = $(dbusconf_in_files:.conf.in=.conf)
 $(dbusconf_DATA): $(dbusconf_in_files) Makefile
 	cp $< $@
 
+systemdservice_in_files = systemd/udisks.service.in
+
+if HAVE_SYSTEMD
+systemdservicedir       = $(systemdsystemunitdir)
+systemdservice_DATA     = $(systemdservice_in_files:.service.in=.service)
+
+$(systemdservice_DATA): $(systemdservice_in_files) Makefile
+	@sed -e "s|\@libexecdir\@|$(prefix)/lib/udisks|" $< > $@
+endif
+
 udevrulesdir = $(slashlibdir)/udev/rules.d
 udevrules_DATA = 80-udisks.rules
 
@@ -38,6 +48,7 @@ endif # REMOTE_ACCESS_ENABLED
 EXTRA_DIST = 						\
 	80-udisks.rules					\
 	$(dbusif_DATA)					\
+	$(systemdservice_in_files)			\
 	$(service_in_files)				\
 	$(dbusconf_in_files)				\
 	udisks.pc.in					\
@@ -45,4 +56,4 @@ EXTRA_DIST = 						\
 	$(NULL)
 
 clean-local :
-	rm -f *~ $(service_DATA) $(dbusconf_DATA)
+	rm -f *~ $(service_DATA) $(dbusconf_DATA) $(systemdservice_DATA)

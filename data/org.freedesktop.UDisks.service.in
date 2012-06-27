@@ -2,4 +2,4 @@
 Name=org.freedesktop.UDisks
 Exec=@libexecdir@/udisks-daemon --no-debug
 User=root
-
+SystemdService=udisks.service

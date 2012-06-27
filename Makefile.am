@@ -24,7 +24,8 @@ EXTRA_DIST = 			\
 	ChangeLog
 
 # xsltproc barfs on 'make distcheck'; disable for now
-DISTCHECK_CONFIGURE_FLAGS=--disable-man-pages --disable-gtk-doc
+DISTCHECK_CONFIGURE_FLAGS=--disable-man-pages --disable-gtk-doc \
+			  --with-systemdsystemunitdir=$$dc_install_base/$(systemdsystemunitdir)
 
 clean-local :
 	rm -f *~
