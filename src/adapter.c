@@ -506,6 +506,11 @@ update_info_fabric_and_num_ports (Adapter *adapter)
         {
           fabric = "scsi";
         }
+      else if (subclass == 0x04)
+        {
+          /* PCI Mass storage subclass 0x04 is RAID - eg 3w-9xxx SATA-RAID*/
+          fabric = "raid";
+        }
       else if (subclass == 0x07)
         {
           fabric = "scsi_sas";
@@ -553,6 +558,13 @@ update_info_fabric_and_num_ports (Adapter *adapter)
     }
 
   ret = TRUE;
+  
+  /*
+    set fabric to "unknown" string if it's NULL, or the udisks-daemon segfaults when calling
+      g_str_has_prefix (adapter_local_get_fabric (adapter), "ata")
+    in port.c (function update_info).
+  */
+  if (fabric == NULL) fabric = "unknown"; 
 
   adapter_set_fabric (adapter, fabric);
   adapter_set_num_ports (adapter, num_ports);
