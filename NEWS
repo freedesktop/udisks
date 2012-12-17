@@ -1,5 +1,5 @@
 ------------
-udisks 2.0.1 (unreleased)
+udisks 2.0.1
 ------------
 
 The udisks project provides a daemon, tools and libraries to access
@@ -7,12 +7,23 @@ and manipulate disks and storage devices.
 
 Changes since udisks 2.0.0:
 
- TODO
+David Zeuthen (11):
+      Post-release version bump to 2.0.1
+      Update my email address
+      Document the release process
+      Start writing NEWS for 2.0.1
+      Explain post-release actions in HACKING
+      Remove fa_IR translation
+      Add translations for eu, fa, hr and sq from Transifix
+      Ensure HintAuto is FALSE for PC floppy drives
+      Use both WWN and serials for VPD, if available
+      Pull translations from Transifix
+      Update NEWS for release
 
 Thanks to all our contributors.
 
 David Zeuthen,
-$DATE
+December 17, 2012
 
 ------------
 udisks 2.0.0
