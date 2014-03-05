@@ -39,6 +39,11 @@
 #include "mount.h"
 #include "private.h"
 
+/* build a %Ns format string macro with N == PATH_MAX */
+#define xstr(s) str(s)
+#define str(s) #s
+#define PATH_MAX_FMT "%" xstr(PATH_MAX) "s"
+
 /*--------------------------------------------------------------------------------------------------------------*/
 
 enum
@@ -320,8 +325,8 @@ mount_monitor_ensure (MountMonitor *monitor)
       guint mount_id;
       guint parent_id;
       guint major, minor;
-      gchar encoded_root[PATH_MAX];
-      gchar encoded_mount_point[PATH_MAX];
+      gchar encoded_root[PATH_MAX + 1];
+      gchar encoded_mount_point[PATH_MAX + 1];
       gchar *mount_point;
       dev_t dev;
 
@@ -329,7 +334,7 @@ mount_monitor_ensure (MountMonitor *monitor)
         continue;
 
       if (sscanf (lines[n],
-                  "%d %d %d:%d %s %s",
+                  "%d %d %d:%d " PATH_MAX_FMT " " PATH_MAX_FMT,
                   &mount_id,
                   &parent_id,
                   &major,
@@ -340,6 +345,8 @@ mount_monitor_ensure (MountMonitor *monitor)
           g_warning ("Error parsing line '%s'", lines[n]);
           continue;
         }
+      encoded_root[sizeof encoded_root - 1] = '\0';
+      encoded_mount_point[sizeof encoded_mount_point - 1] = '\0';
 
       /* ignore mounts where only a subtree of a filesystem is mounted */
       if (g_strcmp0 (encoded_root, "/") != 0)
@@ -358,15 +365,17 @@ mount_monitor_ensure (MountMonitor *monitor)
           sep = strstr (lines[n], " - ");
           if (sep != NULL)
             {
-              gchar fstype[PATH_MAX];
-              gchar mount_source[PATH_MAX];
+              gchar fstype[PATH_MAX + 1];
+              gchar mount_source[PATH_MAX + 1];
               struct stat statbuf;
 
-              if (sscanf (sep + 3, "%s %s", fstype, mount_source) != 2)
+              if (sscanf (sep + 3, PATH_MAX_FMT " " PATH_MAX_FMT, fstype, mount_source) != 2)
                 {
                   g_warning ("Error parsing things past - for '%s'", lines[n]);
                   continue;
                 }
+              fstype[sizeof fstype - 1] = '\0';
+              mount_source[sizeof mount_source - 1] = '\0';
 
               if (g_strcmp0 (fstype, "btrfs") != 0)
                 continue;
