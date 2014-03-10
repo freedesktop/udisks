@@ -1,5 +1,5 @@
 ------------
-udisks 1.0.5 <not released yet>
+udisks 1.0.5
 ------------
 
 udisks provides a daemon, D-Bus API and command line tools
@@ -12,14 +12,42 @@ x. At this point we do not provide any ABI guarantees for the
 udisks(1) command-line tool (neither options nor the name). See the
 README file for more discussion of ABI guarantees.
 
+This version fixes a security vulnerability (CVE-2014-0004), so please update
+as soon as possible!
+
 Changes from udisks 1.0.4:
 
- <insert prettified output of 'git shortlog 1.0.4..' here
+Brice De Bruyne (1):
+      Fix segfault and detection for SATA-II RAID controller
+
+David Zeuthen (2):
+      udisks-daemon: Add --no-debug option and use this for D-Bus activation
+      Bug 51439 – udisks should hide lvm PVs
+
+Edward Sheldrake (1):
+      Fix power/level deprecation kernel warning
+
+Martin Pitt (9):
+      Fix buffer overflow in mount path parsing. If users have the possibility
+      to create very long mount points, such as with FUSE, they could cause
+      udisksd to crash, or even to run arbitrary code as root with specially
+      crafted mount paths. [CVE-2014-0004]
+
+      tests/run: Fix crash if first hard disk is not SMART capable
+      Add some safe and useful ntfs-3g allowed mount options
+      Drop deprecated g_io_channel_seek()
+      test suite: Fix test_swap to not expect successful fsck
+      test suite: Fix test_reiserfs for current reiserfsprogs
+      Bug 48173 — Ignore add/change events for a nonexisting native path
+      Mark rts_bpp devices as SD card readers
+
+Tom Gundersen (1):
+      add systemd service file and dbus activation to the udisks1 branch
 
 Thanks to all our contributors.
 
-<insert your name>,
-<insert the date>
+Martin Pitt
+March 10, 2014
 
 ------------
 udisks 1.0.4
