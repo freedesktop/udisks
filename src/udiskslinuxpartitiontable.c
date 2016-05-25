@@ -343,7 +343,6 @@ handle_create_partition (UDisksPartitionTable   *table,
   uid_t caller_uid;
   gid_t caller_gid;
   gboolean do_wipe = TRUE;
-  gboolean was_partitioned = FALSE;
   GError *error;
 
   error = NULL;
@@ -590,10 +589,6 @@ handle_create_partition (UDisksPartitionTable   *table,
   /* this is sometimes needed because parted(8) does not generate the uevent itself */
   udisks_linux_block_object_trigger_uevent (UDISKS_LINUX_BLOCK_OBJECT (object));
 
-  was_partitioned = (udisks_object_peek_partition_table (object) != NULL);
-  if (was_partitioned)
-    udisks_linux_block_object_reread_partition_table (UDISKS_LINUX_BLOCK_OBJECT (object));
-
   /* sit and wait for the partition to show up */
   g_warn_if_fail (wait_data->pos_to_wait_for > 0);
   wait_data->partition_table_object = object;
@@ -648,9 +643,6 @@ handle_create_partition (UDisksPartitionTable   *table,
 
   /* this is sometimes needed because parted(8) does not generate the uevent itself */
   udisks_linux_block_object_trigger_uevent (UDISKS_LINUX_BLOCK_OBJECT (partition_object));
-
-  if (was_partitioned)
-    udisks_linux_block_object_reread_partition_table (UDISKS_LINUX_BLOCK_OBJECT (object));
 
   udisks_partition_table_complete_create_partition (table,
                                                     invocation,
