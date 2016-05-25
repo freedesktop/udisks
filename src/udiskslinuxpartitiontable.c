@@ -26,6 +26,8 @@
 #include <grp.h>
 #include <string.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <sys/file.h>
 
 #include <glib/gstdio.h>
 
@@ -317,6 +319,27 @@ wait_for_partition (UDisksDaemon *daemon,
 
 #define MIB_SIZE (1048576L)
 
+static int
+flock_block_dev (UDisksPartitionTable *iface)
+{
+  UDisksObject *object = udisks_daemon_util_dup_object (iface, NULL);
+  UDisksBlock *block = object? udisks_object_peek_block (object) : NULL;
+  int fd = block? open (udisks_block_get_device (block), O_RDONLY) : -1;
+
+  if (fd >= 0)
+    flock (fd, LOCK_SH | LOCK_NB);
+
+  g_clear_object (&object);
+  return fd;
+}
+
+static void
+unflock_block_dev (int fd)
+{
+  if (fd >= 0)
+    close (fd);
+}
+
 /* runs in thread dedicated to handling @invocation */
 static gboolean
 handle_create_partition (UDisksPartitionTable   *table,
@@ -344,6 +367,24 @@ handle_create_partition (UDisksPartitionTable   *table,
   gid_t caller_gid;
   gboolean do_wipe = TRUE;
   GError *error;
+  int lock_fd;
+
+  /* We (try to) take a shared lock on the partition table while
+     creating and formatting a new partition.
+
+     This lock prevents udevd from issuing a BLKRRPART ioctl call.
+     That ioctl is undesired because it might temporarily remove the
+     block device of the newly created block device.  It does so only
+     temporarily, but it still happens that the block device is
+     missing exactly when wipefs or mkfs try to access it.
+
+     Also, a pair of remove/add events will cause udisks to create a
+     new internal UDisksObject to represent the block device of the
+     partition.  The code currently doesn't handle this and waits for
+     changes (such as an expected filesystem type or UUID) to a
+     obsolete internal object that will never see them.
+  */
+  lock_fd = flock_block_dev (table);
 
   error = NULL;
   object = udisks_daemon_util_dup_object (table, &error);
@@ -658,6 +699,7 @@ handle_create_partition (UDisksPartitionTable   *table,
   g_free (error_message);
   g_clear_object (&object);
   g_clear_object (&block);
+  unflock_block_dev (lock_fd);
   return TRUE; /* returning TRUE means that we handled the method invocation */
 }
 
