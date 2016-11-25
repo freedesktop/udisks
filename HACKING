@@ -38,14 +38,14 @@ Checklist for making a release:
 
  - Check that everything works
    - Run 'make check'
-   - Run 'sudo ./integration-test' in src/tests
+   - Run 'sudo src/tests/integration-test'
    - Check that you have no uncommitted or unpushed changes
    - Check there are no glaring TODO or FIXME
    - Sanity-check all new API
    - Ensure newly added API is marked properly with "Since: X.Y"
    - Ensure that deprecated API is marked as such
 
- - Do the actual release (see Makefile.am, do it manually if not davidz)
+ - Do the actual release (see Makefile.am)
    - run 'make publish'
    - run 'make publish-docs'
 
