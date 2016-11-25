@@ -1,5 +1,5 @@
 ------------
-udisks 2.1.8 (unreleased)
+udisks 2.1.8
 ------------
 
 The udisks project provides a daemon, tools and libraries to access
@@ -7,12 +7,38 @@ and manipulate disks and storage devices.
 
 Changes since udisks 2.1.7:
 
-(TODO: git shortlog)
+Hielke Christian Braun (1):
+      Allow NTFS mount option "big_writes"
+
+João Paulo Rechi Vita (1):
+      Don't coldplug uninitilized udev devices
+
+Mantas Mikulėnas (1):
+      Detect old (non-Pro) MemoryStick cards
+
+Marius Vollmer (1):
+      Lock the partition table while creating a new partition
+
+Martin Pitt (6):
+      tests: Accept fancy quotes in GLib error messages
+      Update translations from transifex
+      autogen.sh: Drop obsolete PKG_NAME
+      exfat: Drop umask=0077 default
+      udisks2.service: Add KillSignal=SIGINT
+
+Mike Frysinger (1):
+      Include sys/sysmacros.h for major/minor/makedev
+
+Ritesh Khadgaray (1):
+      btrfs: Add support for changing label
+
+Ting-Wei Lan (1):
+      build: Fix gtk-doc build when builddir != srcdir
 
 Thanks to all our contributors.
 
 Martin Pitt,
-(TODO: date)
+2016-11-25
 
 ------------
 udisks 2.1.7
