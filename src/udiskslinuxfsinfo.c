@@ -101,7 +101,7 @@ const FSInfo _fs_info[] =
     },
     {
       "btrfs",
-      NULL,
+      "btrfs filesystem label $DEVICE $LABEL",
       NULL,
       FALSE, /* supports_online_label_rename */
       TRUE,  /* supports_owners */
