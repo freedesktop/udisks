@@ -24,7 +24,7 @@ import time
 
 import dbus
 import dbus.service
-from gi.repository import GLib, Gio
+from gi.repository import GLib
 
 # ----------------------------------------------------------------------------
 
